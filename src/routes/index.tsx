@@ -53,6 +53,10 @@ function Index() {
   const [matchMode, setMatchMode] = useState<"title" | "tag" | "fuzzy" | null>(null);
 
   useEffect(() => {
+    setSearch(q);
+  }, [q]);
+
+  useEffect(() => {
     supabase.from("tags").select("name, slug").order("name").limit(40).then(({ data }) => {
       setAllTags((data as { name: string; slug: string }[]) || []);
     });
