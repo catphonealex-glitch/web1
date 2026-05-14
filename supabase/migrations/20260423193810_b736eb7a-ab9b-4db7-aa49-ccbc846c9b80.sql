@@ -1,8 +1,14 @@
 
 -- ============ ROLES ============
-CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+DO $$
+BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END
+$$;
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role app_role NOT NULL,
@@ -34,7 +40,7 @@ CREATE POLICY "admins manage roles" ON public.user_roles FOR ALL
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 -- ============ PROFILES ============
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL,
   bio TEXT DEFAULT '',
@@ -69,7 +75,7 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ============ TAGS ============
-CREATE TABLE public.tags (
+CREATE TABLE IF NOT EXISTS public.tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   slug TEXT NOT NULL UNIQUE,
@@ -84,7 +90,7 @@ CREATE POLICY "staff delete tags" ON public.tags FOR DELETE
   USING (public.is_staff(auth.uid()));
 
 -- ============ PROJECTS ============
-CREATE TABLE public.projects (
+CREATE TABLE IF NOT EXISTS public.projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -106,7 +112,7 @@ CREATE POLICY "author or staff delete project" ON public.projects FOR DELETE
   USING (auth.uid() = author_id OR public.is_staff(auth.uid()));
 
 -- ============ PROJECT TAGS ============
-CREATE TABLE public.project_tags (
+CREATE TABLE IF NOT EXISTS public.project_tags (
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   tag_id UUID NOT NULL REFERENCES public.tags(id) ON DELETE CASCADE,
   PRIMARY KEY (project_id, tag_id)
@@ -119,7 +125,7 @@ CREATE POLICY "author manages project_tags" ON public.project_tags FOR ALL
   WITH CHECK (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.author_id = auth.uid()));
 
 -- ============ COMMENTS ============
-CREATE TABLE public.comments (
+CREATE TABLE IF NOT EXISTS public.comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -137,7 +143,7 @@ CREATE POLICY "author or staff delete comment" ON public.comments FOR DELETE
   USING (auth.uid() = author_id OR public.is_staff(auth.uid()));
 
 -- ============ APPLICATIONS ============
-CREATE TABLE public.applications (
+CREATE TABLE IF NOT EXISTS public.applications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   applicant_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -159,7 +165,7 @@ CREATE POLICY "applicant or staff delete app" ON public.applications FOR DELETE
   USING (auth.uid() = applicant_id OR public.is_staff(auth.uid()));
 
 -- ============ REPORTS ============
-CREATE TABLE public.reports (
+CREATE TABLE IF NOT EXISTS public.reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL,
@@ -186,7 +192,8 @@ INSERT INTO storage.buckets (id, name, public) VALUES
   ('media','media',true),
   ('texts','texts',true),
   ('demos','demos',true),
-  ('avatars','avatars',true);
+  ('avatars','avatars',true)
+ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "public read media" ON storage.objects FOR SELECT USING (bucket_id IN ('media','texts','demos','avatars'));
 CREATE POLICY "auth upload media" ON storage.objects FOR INSERT
@@ -197,8 +204,8 @@ CREATE POLICY "owner or staff delete media" ON storage.objects FOR DELETE
   USING (auth.uid()::text = (storage.foldername(name))[1] OR public.is_staff(auth.uid()));
 
 -- ============ INDEXES ============
-CREATE INDEX idx_projects_created ON public.projects(created_at DESC);
-CREATE INDEX idx_projects_author ON public.projects(author_id);
-CREATE INDEX idx_comments_project ON public.comments(project_id);
-CREATE INDEX idx_apps_project ON public.applications(project_id);
-CREATE INDEX idx_project_tags_tag ON public.project_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_projects_created ON public.projects(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_projects_author ON public.projects(author_id);
+CREATE INDEX IF NOT EXISTS idx_comments_project ON public.comments(project_id);
+CREATE INDEX IF NOT EXISTS idx_apps_project ON public.applications(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_tags_tag ON public.project_tags(tag_id);
