@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loading...</title>
+    <script>
+      // SPA routing: redirect to index.html with the original path
+      const path = window.location.pathname;
+      const basePath = '/web1';
+      
+      // Only redirect if it's not a file (doesn't have an extension)
+      if (!path.match(/\.\w+$/) && path !== basePath + '/') {
+        window.location.replace(basePath + '/#' + path.replace(basePath, ''));
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
